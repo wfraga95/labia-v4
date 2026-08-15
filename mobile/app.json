@@ -1,18 +1,18 @@
 {
   "expo": {
-    "name": "LabIA Profissional",
+    "name": "LabIA",
     "slug": "labia-v4",
-    "version": "4.0.0",
-    "orientation": "portrait",
-    "userInterfaceStyle": "light",
     "android": {
-      "package": "com.labia.profissional"
+      "usesCleartextTraffic": true,
+      "package": "com.wfraga.labiav4"
     },
-    "ios": {
-      "bundleIdentifier": "com.labia.profissional"
+    "extra": {
+      "eas": {
+        "projectId": "d3dbe1c0-2097-4060-9050-76cdf33934cc"
+      }
     },
     "plugins": [
-      "expo-status-bar"
+      "expo-build-properties"
     ]
   }
 }
