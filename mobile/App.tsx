@@ -130,17 +130,9 @@ export default function App() {
     }
   }
 
-  async function pickOrder() {
-    const p = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!p.granted) return Alert.alert("Permissão", "Autorize o acesso às imagens.");
-    const r = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.8,
-      base64: true
-    });
-    if (r.canceled) return;
-    const a = r.assets[0];
-    setImage(a.uri);
+  // Função para processar a imagem (comum para câmera e galeria)
+  async function processExamImage(asset: ImagePicker.ImagePickerAsset) {
+    setImage(asset.uri);
     setLoading(true);
     try {
       const x = await fetch(`${API_URL}/api/analyze-order`, {
@@ -149,7 +141,7 @@ export default function App() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ base64: a.base64, mimeType: a.mimeType || "image/jpeg" })
+        body: JSON.stringify({ base64: asset.base64, mimeType: asset.mimeType || "image/jpeg" })
       });
       const d = await x.json();
       if (!x.ok) throw Error(d.error);
@@ -160,6 +152,37 @@ export default function App() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Capturar foto com a CÂMERA em tempo real
+  async function takePhoto() {
+    const p = await ImagePicker.requestCameraPermissionsAsync();
+    if (!p.granted) return Alert.alert("Permissão", "Autorize o acesso à câmera.");
+    
+    const r = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+      base64: true,
+      allowsEditing: true
+    });
+
+    if (r.canceled) return;
+    await processExamImage(r.assets[0]);
+  }
+
+  // Selecionar foto da GALERIA
+  async function pickOrder() {
+    const p = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!p.granted) return Alert.alert("Permissão", "Autorize o acesso às imagens.");
+    
+    const r = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+      base64: true
+    });
+
+    if (r.canceled) return;
+    await processExamImage(r.assets[0]);
   }
 
   if (!token) {
@@ -201,7 +224,7 @@ export default function App() {
           <Text style={s.h1}>Central do laboratório</Text>
           <Text style={s.muted}>Assistência inteligente para sua rotina.</Text>
           <Card title="✦ Assistente IA" text="Tire dúvidas técnicas, estude casos e organize informações laboratoriais." onPress={() => setScreen("IA")} />
-          <Card title="▣ Leitor de pedidos" text="Envie uma imagem e organize os exames solicitados." onPress={pickOrder} />
+          <Card title="▣ Leitor de pedidos" text="Envie uma imagem e organize os exames solicitados." onPress={() => setScreen("Pedido")} />
           <Card title="◫ Biblioteca" text="Consulte exames, setores e informações pré-analíticas." onPress={() => setScreen("Exames")} />
           <View style={s.notice}>
             <Text style={s.noticeTitle}>Proteção de dados</Text>
@@ -233,8 +256,11 @@ export default function App() {
         <ScrollView contentContainerStyle={s.body}>
           <Text style={s.h1}>Leitor de pedidos</Text>
           {image && <Image source={{ uri: image }} style={s.preview} />}
-          <Card title="📷 Selecionar pedido" text="Use uma foto nítida, sem cortes e com boa iluminação." onPress={pickOrder} />
-          {loading && <ActivityIndicator />}
+          
+          <Card title="📷 Tirar Foto Agora" text="Abra a câmera do celular para fotografar o exame em loco." onPress={takePhoto} />
+          <Card title="🖼 Escolher da Galeria" text="Selecione uma imagem do exame que já esteja salva na galeria." onPress={pickOrder} />
+          
+          {loading && <ActivityIndicator size="large" color="#0b5b89" style={{ marginTop: 15 }} />}
         </ScrollView>
       )}
 
