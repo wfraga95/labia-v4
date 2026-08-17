@@ -2,6 +2,12 @@
   "expo": {
     "name": "LabIA",
     "slug": "labia-v4",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "android": {
       "usesCleartextTraffic": true,
       "package": "com.wfraga.labiav4"
