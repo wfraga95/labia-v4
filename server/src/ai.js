@@ -7,7 +7,7 @@ import { GoogleGenAI } from "@google/genai";
 |--------------------------------------------------------------------------
 */
 
-const MODEL = "gemini-3.6-flash";
+const MODEL = "gemini-2.5-flash";
 
 const SYSTEM = `
 Você é a LabIA V4, uma inteligência artificial profissional
