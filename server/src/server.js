@@ -61,7 +61,6 @@ app.post("/api/auth/register-admin", async (req, res) => {
   try {
     const { name, email, password, adminSecret } = req.body;
     
-    // Altere a palavra 'CHAVE_MESTRA_LABIA' para uma senha secreta sua
     if (adminSecret !== "CHAVE_MESTRA_LABIA") {
       return res.status(403).json({ error: "Chave mestra incorreta." });
     }
@@ -73,6 +72,50 @@ app.post("/api/auth/register-admin", async (req, res) => {
     );
 
     res.json({ message: "Administrador criado com sucesso!", user: rows[0] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ROTA EXCLUSIVA ADM: Listar todos os usuários/laboratórios
+app.get("/api/admin/users", auth, requireRole("admin"), async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT id, name, email, role, active, created_at FROM users ORDER BY created_at DESC"
+    );
+    res.json({ users: rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ROTA EXCLUSIVA ADM: Activar / Bloquear usuário
+app.patch("/api/admin/users/:id/toggle-status", auth, requireRole("admin"), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Busca status atual do usuário
+    const userResult = await pool.query("SELECT id, active FROM users WHERE id = $1", [id]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "Usuário não encontrado." });
+    }
+
+    const currentActiveStatus = userResult.rows[0].active;
+    const newStatus = !currentActiveStatus;
+
+    // Atualiza para o status oposto
+    const { rows } = await pool.query(
+      "UPDATE users SET active = $1 WHERE id = $2 RETURNING id, name, email, role, active",
+      [newStatus, id]
+    );
+
+    // Registra no log de auditoria
+    await pool.query(
+      "INSERT INTO audit_logs(user_id, action, resource, resource_id) VALUES($1, $2, $3, $4)",
+      [req.user.id, newStatus ? "user_activated" : "user_deactivated", "user", id]
+    );
+
+    res.json({ message: `Usuário ${newStatus ? 'ativado' : 'bloqueado'} com sucesso!`, user: rows[0] });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -111,7 +154,7 @@ app.post("/api/auth/login", async (req, res) => {
       "SELECT * FROM users WHERE email=$1 AND active=true", [email]
     );
     if (!rows[0] || !(await verifyPassword(password, rows[0].password_hash)))
-      return res.status(401).json({ error: "E-mail ou senha inválidos." });
+      return res.status(401).json({ error: "E-mail ou senha inválidos ou conta inativa." });
     const user = { id: rows[0].id, name: rows[0].name, email: rows[0].email, role: rows[0].role };
     await pool.query(
       "INSERT INTO audit_logs(user_id,action,resource) VALUES($1,$2,$3)",
