@@ -7,7 +7,8 @@ import { GoogleGenAI } from "@google/genai";
 |--------------------------------------------------------------------------
 */
 
-const MODEL = "gemini-2.5-flash";
+const PRIMARY_MODEL = "gemini-2.5-flash";
+const FALLBACK_MODEL = "gemini-1.5-flash";
 
 const SYSTEM = `
 Você é a LabIA V4, uma inteligência artificial profissional
@@ -83,7 +84,7 @@ Ao analisar uma imagem de pedido médico:
 8. SEGURANÇA
 - Não forneça diagnóstico definitivo baseado somente em exames.
 - Não substitua avaliação médica ou laboratorial.
-- Seja técnico, claro e objetivo.
+- Seja técnico, claro e objective.
 
 9. FORMATAÇÃO
 - Use títulos quando necessário.
@@ -92,7 +93,6 @@ Ao analisar uma imagem de pedido médico:
   for suficiente.
 `;
 
-
 /*
 |--------------------------------------------------------------------------
 | CONEXÃO COM GEMINI
@@ -100,40 +100,28 @@ Ao analisar uma imagem de pedido médico:
 */
 
 if (!process.env.GEMINI_API_KEY) {
-  console.warn(
-    "ATENÇÃO: GEMINI_API_KEY não encontrada no arquivo .env"
-  );
+  console.warn("ATENÇÃO: GEMINI_API_KEY não encontrada no arquivo .env");
 }
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | FUNÇÃO PRINCIPAL DA IA
 |--------------------------------------------------------------------------
-|
-| Usada para perguntas gerais, análise de resultados,
-| dúvidas laboratoriais etc.
-|
 */
 
 export async function askAI(input, context = "") {
   if (!process.env.GEMINI_API_KEY) {
-    throw new Error(
-      "GEMINI_API_KEY não configurada no arquivo .env."
-    );
+    throw new Error("GEMINI_API_KEY não configurada no arquivo .env.");
   }
 
-  try {
-    const promptTexto =
-      typeof input === "string"
-        ? input
-        : JSON.stringify(input, null, 2);
+  const promptTexto =
+    typeof input === "string" ? input : JSON.stringify(input, null, 2);
 
-    const promptCompleto = `
+  const promptCompleto = `
 ${SYSTEM}
 
 ==================================================
@@ -149,54 +137,39 @@ PERGUNTA / AÇÃO
 ${promptTexto}
 `;
 
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: promptCompleto,
-    });
+  const modelsToTry = [PRIMARY_MODEL, FALLBACK_MODEL];
 
-    return (
-      response.text ||
-      "Não foi possível obter uma resposta da LabIA."
-    );
+  for (const modelName of modelsToTry) {
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: promptCompleto,
+      });
 
-  } catch (error) {
-
-    console.error(
-      "Erro na chamada da IA (askAI):",
-      error
-    );
-
-    throw new Error(
-      error?.message ||
-      "Falha na comunicação com a API do Gemini."
-    );
+      if (response.text) {
+        return response.text;
+      }
+    } catch (error) {
+      console.warn(`Falha no modelo ${modelName}:`, error.message);
+    }
   }
-}
 
+  throw new Error("Serviço temporariamente sobrecarregado. Tente novamente em instantes.");
+}
 
 /*
 |--------------------------------------------------------------------------
-| LEITURA DE PEDIDO MÉDICO
+| LEITURA DE PEDIDO MÉDICO COM FALLBACK E RETRY
 |--------------------------------------------------------------------------
-|
-| Recebe:
-| base64   -> imagem em Base64
-| mimeType -> image/jpeg, image/png etc.
-|
 */
 
 export async function readOrder(base64, mimeType) {
-
   if (!process.env.GEMINI_API_KEY) {
-    throw new Error(
-      "GEMINI_API_KEY não configurada no arquivo .env."
-    );
+    throw new Error("GEMINI_API_KEY não configurada no arquivo .env.");
   }
 
   if (!base64) {
-    throw new Error(
-      "Nenhuma imagem foi enviada para leitura."
-    );
+    throw new Error("Nenhuma imagem foi enviada para leitura.");
   }
 
   const prompt = `
@@ -245,92 +218,65 @@ IMPORTANTE:
 Transcreva apenas o que estiver visível na imagem.
 `;
 
-  try {
+  const contents = [
+    { text: `${SYSTEM}\n\n${prompt}` },
+    {
+      inlineData: {
+        data: base64,
+        mimeType: mimeType || "image/jpeg",
+      },
+    },
+  ];
 
-    const response = await ai.models.generateContent({
-      model: MODEL,
+  const modelsToTry = [PRIMARY_MODEL, FALLBACK_MODEL];
 
-      contents: [
-        {
-          text: `${SYSTEM}\n\n${prompt}`,
-        },
+  for (const modelName of modelsToTry) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: contents,
+        });
 
-        {
-          inlineData: {
-            data: base64,
-            mimeType: mimeType || "image/jpeg",
-          },
-        },
-      ],
-    });
-
-    return (
-      response.text ||
-      "Não foi possível analisar o pedido."
-    );
-
-  } catch (error) {
-
-    console.error(
-      "Erro na leitura do pedido (readOrder):",
-      error
-    );
-
-    throw new Error(
-      error?.message ||
-      "Falha na leitura do pedido médico."
-    );
+        if (response.text) {
+          return response.text;
+        }
+      } catch (error) {
+        console.warn(
+          `Tentativa ${attempt} falhou no modelo ${modelName}:`,
+          error.message
+        );
+        // Aguarda 1.5 segundos antes de tentar novamente no caso de erro 503
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+    }
   }
-}
 
+  throw new Error("Instabilidade temporária nos servidores da IA. Por favor, tente enviar novamente.");
+}
 
 /*
 |--------------------------------------------------------------------------
 | FUNÇÃO PARA TESTAR A CONEXÃO COM O GEMINI
 |--------------------------------------------------------------------------
-|
-| Podemos utilizar essa função futuramente para criar uma rota:
-|
-| GET /api/ai/test
-|
 */
 
 export async function testAI() {
-
   if (!process.env.GEMINI_API_KEY) {
-    throw new Error(
-      "GEMINI_API_KEY não configurada."
-    );
+    throw new Error("GEMINI_API_KEY não configurada.");
   }
 
   try {
-
     const response = await ai.models.generateContent({
-      model: MODEL,
-
-      contents:
-        "Responda apenas: LabIA V4 conectada com sucesso.",
+      model: PRIMARY_MODEL,
+      contents: "Responda apenas: LabIA V4 conectada com sucesso.",
     });
 
-    return (
-      response.text ||
-      "IA conectada, mas não retornou texto."
-    );
-
+    return response.text || "IA conectada, mas não retornou texto.";
   } catch (error) {
-
-    console.error(
-      "Erro no teste da IA:",
-      error
-    );
-
-    throw new Error(
-      error?.message ||
-      "Não foi possível conectar ao Gemini."
-    );
+    throw new Error(error?.message || "Não foi possível conectar ao Gemini.");
   }
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -339,12 +285,9 @@ export async function testAI() {
 */
 
 export function getAIConfig() {
-
   return {
     provider: "Google Gemini",
-    model: MODEL,
-    configured: Boolean(
-      process.env.GEMINI_API_KEY
-    ),
+    model: PRIMARY_MODEL,
+    configured: Boolean(process.env.GEMINI_API_KEY),
   };
 }
