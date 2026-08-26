@@ -84,7 +84,7 @@ Ao analisar uma imagem de pedido médico:
 8. SEGURANÇA
 - Não forneça diagnóstico definitivo baseado somente em exames.
 - Não substitua avaliação médica ou laboratorial.
-- Seja técnico, claro e objetivo.
+- Seja técnico, claro e objective.
 
 9. FORMATAÇÃO
 - Use títulos quando necessário.
@@ -144,10 +144,6 @@ ${promptTexto}
       const response = await ai.models.generateContent({
         model: modelName,
         contents: promptCompleto,
-        config: {
-          temperature: 0.2,
-          maxOutputTokens: 1000,
-        },
       });
 
       if (response.text) {
@@ -163,7 +159,7 @@ ${promptTexto}
 
 /*
 |--------------------------------------------------------------------------
-| LEITURA DE PEDIDO MÉDICO COM FALLBACK, RETRY E OTIMIZAÇÃO DE VELOCIDADE
+| LEITURA DE PEDIDO MÉDICO COM FALLBACK E RETRY
 |--------------------------------------------------------------------------
 */
 
@@ -240,10 +236,6 @@ Transcreva apenas o que estiver visível na imagem.
         const response = await ai.models.generateContent({
           model: modelName,
           contents: contents,
-          config: {
-            temperature: 0.1,       // Reduz a variação e acelera a geração do OCR
-            maxOutputTokens: 800,   // Limita a contagem de tokens para finalizar a resposta mais rápido
-          },
         });
 
         if (response.text) {
