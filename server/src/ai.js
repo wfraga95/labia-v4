@@ -8,7 +8,6 @@ import sharp from "sharp";
 |--------------------------------------------------------------------------
 */
 
-// Modelos corrigidos com a nomenclatura oficial da API do Gemini
 const PRIMARY_MODEL = "gemini-1.5-flash";
 const FALLBACK_MODEL = "gemini-1.5-pro";
 
@@ -117,11 +116,9 @@ const ai = new GoogleGenAI({
 
 async function compressBase64Image(base64Str) {
   try {
-    // Remove qualquer prefixo Data URI se presente (ex: "data:image/jpeg;base64,")
     const cleanBase64 = base64Str.replace(/^data:image\/\w+;base64,/, "");
     const imageBuffer = Buffer.from(cleanBase64, "base64");
 
-    // Redimensiona para 1080px mantendo proporção e aplica compressão JPEG 70%
     const compressedBuffer = await sharp(imageBuffer)
       .resize({ width: 1080, fit: "inside", withoutEnlargement: true })
       .jpeg({ quality: 70 })
@@ -130,7 +127,7 @@ async function compressBase64Image(base64Str) {
     return compressedBuffer.toString("base64");
   } catch (error) {
     console.warn("Falha na compressão com Sharp. Usando imagem original:", error.message);
-    return base64Str; // Se falhar, retorna a original por segurança
+    return base64Str.replace(/^data:image\/\w+;base64,/, "");
   }
 }
 
@@ -186,7 +183,7 @@ ${promptTexto}
 
 /*
 |--------------------------------------------------------------------------
-| LEITURA DE PEDIDO MÉDICO COM COMPRESSÃO, FALLBACK E RETRY
+| LEITURA DE PEDIDO MÉDICO (CORRIGIDO PARA @google/genai)
 |--------------------------------------------------------------------------
 */
 
@@ -199,7 +196,7 @@ export async function readOrder(base64, mimeType) {
     throw new Error("Nenhuma imagem foi enviada para leitura.");
   }
 
-  // 1. OTIMIZAÇÃO: Comprime a imagem no Render antes do envio para a API
+  // 1. Compressão com Sharp
   const lightBase64 = await compressBase64Image(base64);
 
   const prompt = `
@@ -248,12 +245,13 @@ IMPORTANTE:
 Transcreva apenas o que estiver visível na imagem.
 `;
 
+  // 2. Estrutura ajustada para a SDK @google/genai
   const contents = [
-    { text: `${SYSTEM}\n\n${prompt}` },
+    `${SYSTEM}\n\n${prompt}`,
     {
       inlineData: {
         data: lightBase64,
-        mimeType: "image/jpeg", // Sharp converte o buffer para JPEG
+        mimeType: "image/jpeg",
       },
     },
   ];
@@ -276,7 +274,6 @@ Transcreva apenas o que estiver visível na imagem.
           `Tentativa ${attempt} falhou no modelo ${modelName}:`,
           error.message
         );
-        // Aguarda 1.5 segundos antes de tentar novamente no caso de oscilações
         await new Promise((resolve) => setTimeout(resolve, 1500));
       }
     }
@@ -287,7 +284,7 @@ Transcreva apenas o que estiver visível na imagem.
 
 /*
 |--------------------------------------------------------------------------
-| FUNÇÃO PARA TESTAR A CONEXÃO COM O GEMINI
+| FUNÇÕES DE SUPORTE
 |--------------------------------------------------------------------------
 */
 
@@ -307,12 +304,6 @@ export async function testAI() {
     throw new Error(error?.message || "Não foi possível conectar ao Gemini.");
   }
 }
-
-/*
-|--------------------------------------------------------------------------
-| INFORMAÇÕES DA CONFIGURAÇÃO
-|--------------------------------------------------------------------------
-*/
 
 export function getAIConfig() {
   return {
