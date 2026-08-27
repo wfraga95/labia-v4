@@ -8,8 +8,8 @@ import sharp from "sharp";
 |--------------------------------------------------------------------------
 */
 
-const PRIMARY_MODEL = "gemini-1.5-flash";
-const FALLBACK_MODEL = "gemini-1.5-pro";
+const PRIMARY_MODEL = "models/gemini-1.5-flash";
+const FALLBACK_MODEL = "models/gemini-1.5-pro";
 
 const SYSTEM = `
 Você é a LabIA V4, uma inteligência artificial profissional
@@ -183,7 +183,7 @@ ${promptTexto}
 
 /*
 |--------------------------------------------------------------------------
-| LEITURA DE PEDIDO MÉDICO (ESTRUTURA CORRIGIDA DO SDK)
+| LEITURA DE PEDIDO MÉDICO
 |--------------------------------------------------------------------------
 */
 
@@ -245,7 +245,7 @@ IMPORTANTE:
 Transcreva apenas o que estiver visível na imagem.
 `;
 
-  // 2. Estrutura CORRETA do payload para @google/genai
+  // 2. Estrutura correta de partes exigida pelo SDK @google/genai
   const contents = [
     {
       role: "user",
