@@ -4,167 +4,11 @@ import sharp from "sharp";
 
 /*
 |--------------------------------------------------------------------------
-| LABIA V4.1 — CONFIGURAÇÃO
-|--------------------------------------------------------------------------
-|
-| Modelos oficiais homologados para a SDK @google/genai:
-| - Principal: gemini-1.5-flash
-| - Fallback 1: gemini-2.0-flash
-| - Fallback 2: gemini-1.5-pro
+| LABIA V4.1 — CONFIGURAÇÃO SIMPLIFICADA
 |--------------------------------------------------------------------------
 */
 
-const PRIMARY_MODEL = "gemini-1.5-flash";
-const FALLBACK_MODEL = "gemini-2.0-flash";
-
-const MODELS_TO_TRY = [
-  PRIMARY_MODEL,
-  FALLBACK_MODEL,
-  "gemini-1.5-pro",
-];
-
-/*
-|--------------------------------------------------------------------------
-| INSTRUÇÕES PRINCIPAIS DA LABIA
-|--------------------------------------------------------------------------
-*/
-
-const SYSTEM = `
-Você é a LabIA V4, uma inteligência artificial profissional
-especializada em Análises Clínicas.
-
-Responda sempre em português do Brasil.
-
-OBJETIVO:
-Auxiliar estudantes, professores, biomédicos, técnicos e profissionais
-de laboratório nas atividades relacionadas às análises clínicas.
-
-PRINCÍPIOS:
-
-1. FASES DO LABORATÓRIO
-
-Diferencie claramente:
-- fase pré-analítica;
-- fase analítica;
-- fase pós-analítica.
-
-Quando uma situação envolver erros laboratoriais, indique em qual fase
-o problema provavelmente ocorreu.
-
-2. RESULTADOS LABORATORIAIS
-
-- Não invente valores de referência.
-- Valores de referência dependem do método, equipamento, população,
-  faixa etária, sexo e laboratório.
-- Quando um valor de referência não for fornecido, informe isso.
-- Não transforme uma alteração laboratorial em diagnóstico definitivo.
-- Apresente possibilidades e correlações laboratoriais.
-- Informe quais dados adicionais seriam necessários.
-- Diferencie achado laboratorial de diagnóstico clínico.
-- Quando apropriado, explique possíveis causas pré-analíticas,
-  analíticas e pós-analíticas de alterações.
-
-3. MEDICAMENTOS
-
-- Não prescreva medicamentos.
-- Não altere doses.
-- Não recomende suspensão ou início de medicamentos.
-- Não substitua orientação médica.
-- Quando necessário, informe que a decisão deve ser tomada pelo
-  profissional responsável pelo paciente.
-
-4. PEDIDOS MÉDICOS
-
-Ao analisar uma imagem de pedido médico:
-
-- Identifique somente exames realmente visíveis.
-- Não invente exames.
-- Se alguma palavra estiver ilegível, escreva [ILEGÍVEL].
-- Preserve o nome do exame da forma mais fiel possível.
-- Organize os exames de maneira clara.
-- Sempre que possível, classifique os exames por setor.
-
-SETORES:
-
-- Hematologia
-- Bioquímica
-- Imunologia
-- Hormônios
-- Microbiologia
-- Parasitologia
-- Urinálise
-- Coagulação
-- Líquidos corporais
-- Genética
-- Outros
-
-5. PREPARO
-
-- Identifique somente instruções de preparo que estejam escritas
-  no documento.
-- Não invente jejum.
-- Não invente restrições alimentares.
-- Não invente horários.
-- Não invente orientações de coleta.
-
-6. CONHECIMENTO
-
-Quando houver conhecimento recuperado:
-- utilize-o para complementar a resposta;
-- priorize o conhecimento fornecido pelo sistema;
-- não invente fontes;
-- não atribua informações a uma fonte que não tenha sido fornecida.
-
-Quando utilizar uma fonte fornecida pelo sistema, cite:
-[Fonte: título]
-
-Quando não houver fonte suficiente, informe:
-"Resposta baseada em conhecimento geral."
-
-7. PRIVACIDADE
-
-- Minimize dados pessoais.
-- Não repita nome, CPF, endereço ou outros identificadores
-  quando não forem necessários.
-- Não solicite dados pessoais desnecessários.
-
-8. SEGURANÇA
-
-- Não forneça diagnóstico definitivo baseado somente em exames.
-- Não substitua avaliação médica ou laboratorial.
-- Não prescreva tratamentos.
-- Seja técnico, claro e objetivo.
-- Quando houver risco clínico importante, recomende avaliação
-  por profissional habilitado.
-
-9. FORMATAÇÃO
-
-- Use títulos quando necessário.
-- Use listas para facilitar a leitura.
-- Utilize tabelas somente quando realmente ajudarem.
-- Evite respostas excessivamente longas quando uma resposta objetiva
-  for suficiente.
-- Explique termos técnicos quando estiver respondendo a estudantes.
-- Não repita informações desnecessariamente.
-
-10. ANÁLISES CLÍNICAS
-
-Quando solicitado a interpretar resultados laboratoriais:
-- apresente os resultados identificados;
-- compare com os valores de referência somente quando fornecidos;
-- destaque alterações;
-- explique possíveis correlações;
-- diferencie hipótese de diagnóstico;
-- indique informações adicionais relevantes.
-
-Nunca invente resultados que não estejam presentes.
-`;
-
-/*
-|--------------------------------------------------------------------------
-| VERIFICAÇÃO DA API KEY E CONEXÃO COM GEMINI
-|--------------------------------------------------------------------------
-*/
+const MODEL_NAME = "gemini-2.5-flash";
 
 if (!process.env.GEMINI_API_KEY) {
   console.warn("ATENÇÃO: GEMINI_API_KEY não encontrada no arquivo .env.");
@@ -176,52 +20,7 @@ const ai = new GoogleGenAI({
 
 /*
 |--------------------------------------------------------------------------
-| CONFIGURAÇÕES DE RETRY E HELPERS
-|--------------------------------------------------------------------------
-*/
-
-const MAX_RETRIES_PER_MODEL = 2;
-const RETRY_DELAY_MS = 1500;
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function isPermanentModelError(error) {
-  const message = String(error?.message || "").toLowerCase();
-  return (
-    message.includes("404") ||
-    message.includes("not_found") ||
-    message.includes("model is not found") ||
-    message.includes("is not found for api version") ||
-    message.includes("not supported for generatecontent")
-  );
-}
-
-function isTemporaryError(error) {
-  const message = String(error?.message || "").toLowerCase();
-  return (
-    message.includes("429") ||
-    message.includes("rate limit") ||
-    message.includes("resource exhausted") ||
-    message.includes("500") ||
-    message.includes("internal") ||
-    message.includes("502") ||
-    message.includes("503") ||
-    message.includes("unavailable") ||
-    message.includes("overloaded") ||
-    message.includes("timeout")
-  );
-}
-
-function getReadableError(error) {
-  if (!error) return "Erro desconhecido.";
-  return error?.message || String(error);
-}
-
-/*
-|--------------------------------------------------------------------------
-| COMPRESSÃO DE IMAGEM (SHARP)
+| COMPRESSÃO DE IMAGEM
 |--------------------------------------------------------------------------
 */
 
@@ -234,8 +33,6 @@ async function compressBase64Image(base64Str) {
       .trim();
 
     const imageBuffer = Buffer.from(cleanBase64, "base64");
-
-    if (!imageBuffer.length) throw new Error("Não foi possível converter a imagem.");
 
     const compressedBuffer = await sharp(imageBuffer)
       .rotate()
@@ -252,261 +49,118 @@ async function compressBase64Image(base64Str) {
 
     return compressedBuffer.toString("base64");
   } catch (error) {
-    console.warn(
-      "Falha na compressão com Sharp. Usando imagem original:",
-      getReadableError(error)
-    );
-
-    return base64Str
-      .replace(/^data:image\/[\w.+-]+;base64,/, "")
-      .trim();
+    console.warn("Falha na compressão com Sharp. Usando original:", error.message);
+    return base64Str.replace(/^data:image\/[\w.+-]+;base64,/, "").trim();
   }
 }
 
 /*
 |--------------------------------------------------------------------------
-| EXECUTA GEMINI COM FALLBACK
-|--------------------------------------------------------------------------
-*/
-
-async function generateWithFallback(contents, options = {}) {
-  let lastError = null;
-
-  for (const modelName of MODELS_TO_TRY) {
-    console.log(`[LabIA] Tentando modelo: ${modelName}`);
-
-    for (let attempt = 1; attempt <= MAX_RETRIES_PER_MODEL; attempt++) {
-      try {
-        const request = {
-          model: modelName,
-          contents: contents,
-          config: {
-            systemInstruction: SYSTEM,
-            ...(options.config || {}),
-          },
-        };
-
-        const response = await ai.models.generateContent(request);
-
-        if (response?.text) {
-          console.log(`[LabIA] Sucesso com o modelo: ${modelName}`);
-          return response;
-        }
-
-        throw new Error(`O modelo ${modelName} não retornou texto.`);
-      } catch (error) {
-        lastError = error;
-
-        console.warn(
-          `[LabIA] Tentativa ${attempt}/${MAX_RETRIES_PER_MODEL} falhou no modelo ${modelName}:`,
-          getReadableError(error)
-        );
-
-        if (isPermanentModelError(error)) {
-          console.warn(`[LabIA] Modelo ${modelName} indisponível. Pulando para o próximo.`);
-          break;
-        }
-
-        if (isTemporaryError(error)) {
-          if (attempt < MAX_RETRIES_PER_MODEL) {
-            const delay = RETRY_DELAY_MS * attempt;
-            console.log(`[LabIA] Aguardando ${delay}ms antes de tentar novamente...`);
-            await sleep(delay);
-          }
-          continue;
-        }
-
-        if (attempt < MAX_RETRIES_PER_MODEL) {
-          await sleep(RETRY_DELAY_MS);
-        }
-      }
-    }
-  }
-
-  throw lastError || new Error("Nenhum modelo Gemini conseguiu processar a solicitação.");
-}
-
-/*
-|--------------------------------------------------------------------------
-| FUNÇÃO PRINCIPAL DA IA
+| FUNÇÃO PRINCIPAL DA IA (TEXTO)
 |--------------------------------------------------------------------------
 */
 
 export async function askAI(input, context = "") {
   if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY não configurada no arquivo .env.");
+    throw new Error("GEMINI_API_KEY não configurada.");
   }
 
-  const promptTexto =
-    typeof input === "string" ? input : JSON.stringify(input, null, 2);
-
-  const promptCompleto = `
-CONHECIMENTO RECUPERADO
-==================================================
-
-${context || "Nenhum conhecimento recuperado."}
-
-==================================================
-
-PERGUNTA / AÇÃO
-==================================================
-
-${promptTexto}
-`;
+  const promptTexto = typeof input === "string" ? input : JSON.stringify(input, null, 2);
+  const promptCompleto = `CONHECIMENTO: ${context || "Nenhum"}\n\nPERGUNTA: ${promptTexto}`;
 
   try {
-    const contents = [
-      {
-        role: "user",
-        parts: [{ text: promptCompleto }],
-      },
-    ];
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: promptCompleto,
+    });
 
-    const response = await generateWithFallback(contents);
-
-    return (
-      response.text ||
-      "A IA processou a solicitação, mas não retornou texto."
-    );
+    return response.text || "A IA processou a solicitação, mas não retornou texto.";
   } catch (error) {
-    console.error("[LabIA] Erro final:", getReadableError(error));
+    console.error("[LabIA] Erro em askAI:", error.message);
     throw new Error("Não foi possível processar a solicitação pela IA neste momento.");
   }
 }
 
 /*
 |--------------------------------------------------------------------------
-| LEITURA DE PEDIDO MÉDICO
+| LEITURA DE PEDIDO MÉDICO (IMAGEM + TEXTO)
 |--------------------------------------------------------------------------
 */
 
 export async function readOrder(base64, mimeType) {
   if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY não configurada no arquivo .env.");
+    throw new Error("GEMINI_API_KEY não configurada.");
   }
 
   if (!base64) {
-    throw new Error("Nenhuma imagem foi enviada para leitura.");
+    throw new Error("Nenhuma imagem foi enviada.");
   }
 
   const lightBase64 = await compressBase64Image(base64);
 
   const prompt = `
 Leia cuidadosamente o pedido médico apresentado na imagem.
-
-OBJETIVO:
-Identificar os exames solicitados pelo médico.
+Identifique os exames solicitados e organize-os por setor.
 
 RETORNE EXATAMENTE NESTA ESTRUTURA:
 
 EXAMES IDENTIFICADOS
 1. Nome do exame — Setor
 2. Nome do exame — Setor
-3. Nome do exame — Setor
 
 ITENS ILEGÍVEIS
-- Liste aqui qualquer informação que não possa ser identificada.
-- Se não houver, escreva "Nenhum".
+- Liste informações ilegíveis ou "Nenhum".
 
 PREPARO ESCRITO NO DOCUMENTO
-- Liste somente orientações que estejam realmente escritas na imagem.
-- Se não houver, escreva:
-  "Nenhuma orientação de preparo identificada."
+- Liste orientações ou "Nenhuma orientação de preparo identificada."
 
 OBSERVAÇÕES
-- Informe informações relevantes visíveis no documento.
-- Não faça diagnóstico.
-- Não invente exames.
-- Não interprete exames que não estejam presentes.
-- Não invente valores.
-- Se houver dúvida sobre uma palavra ou exame, escreva [ILEGÍVEL].
-
-SETORES POSSÍVEIS:
-- Hematologia
-- Bioquímica
-- Imunologia
-- Hormônios
-- Microbiologia
-- Parasitologia
-- Urinálise
-- Coagulação
-- Líquidos corporais
-- Genética
-- Outros
-
-REGRAS IMPORTANTES:
-1. Transcreva apenas o que estiver visível.
-2. Não complete automaticamente palavras parcialmente visíveis.
-3. Não suponha exames comuns que não estejam escritos.
-4. Se houver dúvida, utilize [ILEGÍVEL].
-5. Preserve a grafia do exame sempre que possível.
-6. Não faça diagnóstico.
-7. Não interprete resultados.
-8. Não invente preparo.
+- Informe dados relevantes visíveis, sem diagnósticos definitivos.
 `;
 
-  const contents = [
-    {
-      role: "user",
-      parts: [
-        { text: prompt },
+  try {
+    // Chamada direta e limpa suportada pelo SDK @google/genai
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: [
+        prompt,
         {
           inlineData: {
-            data: lightBase64,
             mimeType: "image/jpeg",
+            data: lightBase64,
           },
         },
       ],
-    },
-  ];
+    });
 
-  try {
-    const response = await generateWithFallback(contents);
-
-    return (
-      response.text ||
-      "Não foi possível identificar os exames na imagem."
-    );
+    return response.text || "Não foi possível identificar os exames na imagem.";
   } catch (error) {
-    console.error("[LabIA] Erro na leitura do pedido:", getReadableError(error));
+    console.error("[LabIA] Erro na leitura do pedido:", error.message);
     throw new Error("Não foi possível realizar a leitura da imagem neste momento.");
   }
 }
 
 /*
 |--------------------------------------------------------------------------
-| TESTE E CONFIGURAÇÃO DA IA
+| TESTE E CONFIGURAÇÃO
 |--------------------------------------------------------------------------
 */
 
 export async function testAI() {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY não configurada.");
-  }
+  if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY não configurada.");
 
-  try {
-    const contents = [
-      {
-        role: "user",
-        parts: [{ text: "Responda apenas: LabIA V4 conectada com sucesso." }],
-      },
-    ];
+  const response = await ai.models.generateContent({
+    model: MODEL_NAME,
+    contents: "Responda apenas: LabIA V4 conectada com sucesso.",
+  });
 
-    const response = await generateWithFallback(contents);
-
-    return response.text || "IA conectada, mas não retornou texto.";
-  } catch (error) {
-    console.error("[LabIA] Falha no teste:", getReadableError(error));
-    throw new Error(getReadableError(error));
-  }
+  return response.text || "IA conectada, mas não retornou texto.";
 }
 
 export function getAIConfig() {
   return {
     provider: "Google Gemini",
-    model: PRIMARY_MODEL,
-    fallbackModel: FALLBACK_MODEL,
-    models: MODELS_TO_TRY,
+    model: MODEL_NAME,
     configured: Boolean(process.env.GEMINI_API_KEY),
   };
 }
