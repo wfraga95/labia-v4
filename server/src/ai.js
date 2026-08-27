@@ -3,11 +3,11 @@ import sharp from "sharp";
 
 /*
 |--------------------------------------------------------------------------
-| LABIA V4.1 — CONFIGURAÇÃO DIRETA VIA REST (GEMINI 2.0 FLASH)
+| LABIA V4.1 — CONFIGURAÇÃO DIRETA VIA REST (GEMINI 3.6 FLASH)
 |--------------------------------------------------------------------------
 */
 
-const MODEL_NAME = "gemini-2.0-flash";
+const MODEL_NAME = "gemini-3.6-flash";
 
 if (!process.env.GEMINI_API_KEY) {
   console.warn("ATENÇÃO: GEMINI_API_KEY não encontrada nas variáveis de ambiente.");
