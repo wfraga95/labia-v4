@@ -4,11 +4,11 @@ import sharp from "sharp";
 
 /*
 |--------------------------------------------------------------------------
-| LABIA V4.1 — CONFIGURAÇÃO SIMPLIFICADA
+| LABIA V4.1 — CONFIGURAÇÃO MODELO PRO (CONTA PAGA)
 |--------------------------------------------------------------------------
 */
 
-const MODEL_NAME = "gemini-2.5-flash";
+const MODEL_NAME = "gemini-1.5-pro";
 
 if (!process.env.GEMINI_API_KEY) {
   console.warn("ATENÇÃO: GEMINI_API_KEY não encontrada no arquivo .env.");
@@ -77,7 +77,7 @@ export async function askAI(input, context = "") {
     return response.text || "A IA processou a solicitação, mas não retornou texto.";
   } catch (error) {
     console.error("[LabIA] Erro em askAI:", error.message);
-    throw new Error("Não foi possível processar a solicitação pela IA neste momento.");
+    throw new Error(`Não foi possível processar a solicitação: ${error.message}`);
   }
 }
 
@@ -119,16 +119,21 @@ OBSERVAÇÕES
 `;
 
   try {
-    // Chamada direta e limpa suportada pelo SDK @google/genai
+    // Formato estrito exigido pela SDK @google/genai para multimodal
     const response = await ai.models.generateContent({
       model: MODEL_NAME,
       contents: [
-        prompt,
         {
-          inlineData: {
-            mimeType: "image/jpeg",
-            data: lightBase64,
-          },
+          role: "user",
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                mimeType: "image/jpeg",
+                data: lightBase64,
+              },
+            },
+          ],
         },
       ],
     });
@@ -136,7 +141,7 @@ OBSERVAÇÕES
     return response.text || "Não foi possível identificar os exames na imagem.";
   } catch (error) {
     console.error("[LabIA] Erro na leitura do pedido:", error.message);
-    throw new Error("Não foi possível realizar a leitura da imagem neste momento.");
+    throw new Error(`Erro Gemini: ${error.message || "Falha ao ler imagem"}`);
   }
 }
 
