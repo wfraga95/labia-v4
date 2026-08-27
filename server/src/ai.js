@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { GoogleGenAI } from "@google/genai";
+import sharp from "sharp";
 
 /*
 |--------------------------------------------------------------------------
@@ -84,7 +85,7 @@ Ao analisar uma imagem de pedido médico:
 8. SEGURANÇA
 - Não forneça diagnóstico definitivo baseado somente em exames.
 - Não substitua avaliação médica ou laboratorial.
-- Seja técnico, claro e objective.
+- Seja técnico, claro e objetivo.
 
 9. FORMATAÇÃO
 - Use títulos quando necessário.
@@ -106,6 +107,31 @@ if (!process.env.GEMINI_API_KEY) {
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
+
+/*
+|--------------------------------------------------------------------------
+| FUNÇÃO AUXILIAR DE COMPRESSÃO DE IMAGEM (SHARP)
+|--------------------------------------------------------------------------
+*/
+
+async function compressBase64Image(base64Str) {
+  try {
+    // Remove qualquer prefixo Data URI se presente (ex: "data:image/jpeg;base64,")
+    const cleanBase64 = base64Str.replace(/^data:image\/\w+;base64,/, "");
+    const imageBuffer = Buffer.from(cleanBase64, "base64");
+
+    // Redimensiona para 1080px mantendo proporção e aplica compressão JPEG 70%
+    const compressedBuffer = await sharp(imageBuffer)
+      .resize({ width: 1080, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 70 })
+      .toBuffer();
+
+    return compressedBuffer.toString("base64");
+  } catch (error) {
+    console.warn("Falha na compressão com Sharp. Usando imagem original:", error.message);
+    return base64Str; // Se falhar, retorna a original por segurança
+  }
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -159,7 +185,7 @@ ${promptTexto}
 
 /*
 |--------------------------------------------------------------------------
-| LEITURA DE PEDIDO MÉDICO COM FALLBACK E RETRY
+| LEITURA DE PEDIDO MÉDICO COM COMPRESSÃO, FALLBACK E RETRY
 |--------------------------------------------------------------------------
 */
 
@@ -171,6 +197,9 @@ export async function readOrder(base64, mimeType) {
   if (!base64) {
     throw new Error("Nenhuma imagem foi enviada para leitura.");
   }
+
+  // 1. OTIMIZAÇÃO: Comprime a imagem no Render antes do envio para a API
+  const lightBase64 = await compressBase64Image(base64);
 
   const prompt = `
 Leia cuidadosamente o pedido médico apresentado na imagem.
@@ -222,8 +251,8 @@ Transcreva apenas o que estiver visível na imagem.
     { text: `${SYSTEM}\n\n${prompt}` },
     {
       inlineData: {
-        data: base64,
-        mimeType: mimeType || "image/jpeg",
+        data: lightBase64,
+        mimeType: "image/jpeg", // Sharp converte o buffer para JPEG
       },
     },
   ];
