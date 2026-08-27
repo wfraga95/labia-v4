@@ -8,8 +8,9 @@ import sharp from "sharp";
 |--------------------------------------------------------------------------
 */
 
-const PRIMARY_MODEL = "gemini-3.7-flash";
-const FALLBACK_MODEL = "gemini-3.5-flash";
+// Modelos corrigidos com a nomenclatura oficial da API do Gemini
+const PRIMARY_MODEL = "gemini-1.5-flash";
+const FALLBACK_MODEL = "gemini-1.5-pro";
 
 const SYSTEM = `
 Você é a LabIA V4, uma inteligência artificial profissional
@@ -275,7 +276,7 @@ Transcreva apenas o que estiver visível na imagem.
           `Tentativa ${attempt} falhou no modelo ${modelName}:`,
           error.message
         );
-        // Aguarda 1.5 segundos antes de tentar novamente no caso de erro 503
+        // Aguarda 1.5 segundos antes de tentar novamente no caso de oscilações
         await new Promise((resolve) => setTimeout(resolve, 1500));
       }
     }
