@@ -116,7 +116,7 @@ const ai = new GoogleGenAI({
 
 async function compressBase64Image(base64Str) {
   try {
-    const cleanBase64 = base64Str.replace(/^data:image\/\w+;base64,/, "");
+    const cleanBase64 = base64Str.replace(/^data:image\/\w+;base64,/, "").trim();
     const imageBuffer = Buffer.from(cleanBase64, "base64");
 
     const compressedBuffer = await sharp(imageBuffer)
@@ -127,7 +127,7 @@ async function compressBase64Image(base64Str) {
     return compressedBuffer.toString("base64");
   } catch (error) {
     console.warn("Falha na compressão com Sharp. Usando imagem original:", error.message);
-    return base64Str.replace(/^data:image\/\w+;base64,/, "");
+    return base64Str.replace(/^data:image\/\w+;base64,/, "").trim();
   }
 }
 
@@ -183,7 +183,7 @@ ${promptTexto}
 
 /*
 |--------------------------------------------------------------------------
-| LEITURA DE PEDIDO MÉDICO (CORRIGIDO PARA @google/genai)
+| LEITURA DE PEDIDO MÉDICO (ESTRUTURA CORRIGIDA DO SDK)
 |--------------------------------------------------------------------------
 */
 
@@ -245,14 +245,19 @@ IMPORTANTE:
 Transcreva apenas o que estiver visível na imagem.
 `;
 
-  // 2. Estrutura ajustada para a SDK @google/genai
+  // 2. Estrutura CORRETA do payload para @google/genai
   const contents = [
-    `${SYSTEM}\n\n${prompt}`,
     {
-      inlineData: {
-        data: lightBase64,
-        mimeType: "image/jpeg",
-      },
+      role: "user",
+      parts: [
+        { text: `${SYSTEM}\n\n${prompt}` },
+        {
+          inlineData: {
+            data: lightBase64,
+            mimeType: "image/jpeg",
+          },
+        },
+      ],
     },
   ];
 
